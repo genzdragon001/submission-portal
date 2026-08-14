@@ -122,6 +122,34 @@ class Activity(db.Model):
             'is_past_due': self.due_date < datetime.utcnow() if self.due_date else False
         }
 
+class Setting(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(50), unique=True, nullable=False)
+    value = db.Column(db.String(500))
+
+    @staticmethod
+    def get(key, default=None):
+        s = Setting.query.filter_by(key=key).first()
+        return s.value if s else default
+
+    @staticmethod
+    def set(key, value):
+        s = Setting.query.filter_by(key=key).first()
+        if s:
+            s.value = value
+        else:
+            s = Setting(key=key, value=value)
+            db.session.add(s)
+        db.session.commit()
+
+
+def get_admin_credentials():
+    """Read admin credentials from DB, fall back to env vars."""
+    username = Setting.get('admin_username', ADMIN_USERNAME)
+    password = Setting.get('admin_password', ADMIN_PASSWORD)
+    return username, password
+
+
 def init_db():
     with app.app_context():
         db.create_all()
@@ -321,7 +349,8 @@ def admin_login_post():
     username = request.form.get('username', '').strip()
     password = request.form.get('password', '').strip()
     
-    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+    valid_user, valid_pass = get_admin_credentials()
+    if username == valid_user and password == valid_pass:
         session['logged_in'] = True
         session['username'] = username
         flash('Successfully logged in!', 'success')
@@ -336,6 +365,28 @@ def admin_logout():
     session.pop('username', None)
     flash('Successfully logged out', 'success')
     return redirect(url_for('index'))
+
+@app.route('/admin/settings', methods=['POST'])
+@login_required
+def admin_settings():
+    current_user, current_pass = get_admin_credentials()
+    old_password = request.form.get('old_password', '').strip()
+    new_username = request.form.get('new_username', '').strip()
+    new_password = request.form.get('new_password', '').strip()
+
+    if old_password != current_pass:
+        flash('Current password is incorrect.', 'error')
+        return redirect(request.referrer or url_for('admin'))
+
+    if not new_username or not new_password:
+        flash('Username and password cannot be empty.', 'error')
+        return redirect(request.referrer or url_for('admin'))
+
+    Setting.set('admin_username', new_username)
+    Setting.set('admin_password', new_password)
+    session['username'] = new_username
+    flash('Credentials updated successfully. Please use your new username and password next login.', 'success')
+    return redirect(request.referrer or url_for('admin'))
 
 @app.route('/admin')
 @login_required
