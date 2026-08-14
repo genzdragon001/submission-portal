@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Submission - Submission Folder</title>
+    <style>
+        :root {
+            --sidebar-w: 260px;
+            --primary: #667eea;
+            --primary-dark: #5a6fd6;
+            --accent: #764ba2;
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --text: #2d3748;
+            --text-muted: #718096;
+            --border: #e2e8f0;
+            --success: #48bb78;
+            --danger: #f56565;
+            --warning: #ed8936;
+            --sidebar-bg: #1a1a2e;
+            --sidebar-text: #cbd5e0;
+            --sidebar-active: #667eea;
+            --radius: 10px;
+            --shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: var(--sidebar-w);
+            background: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            z-index: 100;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+        }
+        .sidebar-brand {
+            padding: 28px 24px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-brand .logo {
+            font-size: 22px; font-weight: 700; color: #fff;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .sidebar-brand .logo .icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+        }
+        .sidebar-brand .tagline {
+            font-size: 12px; color: var(--sidebar-text); margin-top: 4px; padding-left: 50px;
+        }
+        .sidebar-nav {
+            flex: 1; padding: 16px 12px; overflow-y: auto;
+        }
+        .sidebar-nav .nav-section {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+            color: rgba(255,255,255,0.3); padding: 16px 12px 8px;
+        }
+        .sidebar-nav a {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 16px; border-radius: 8px;
+            color: var(--sidebar-text); text-decoration: none;
+            font-size: 14px; font-weight: 500; transition: all 0.2s; margin-bottom: 2px;
+        }
+        .sidebar-nav a:hover { background: rgba(255,255,255,0.06); color: #fff; }
+        .sidebar-nav a.active {
+            background: var(--sidebar-active); color: #fff;
+            box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+        }
+        .sidebar-nav a .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+        .sidebar-footer {
+            padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.08);
+            font-size: 12px; color: rgba(255,255,255,0.35);
+        }
+
+        /* --- MAIN --- */
+        .main {
+            flex: 1; margin-left: var(--sidebar-w);
+            padding: 32px 40px; min-height: 100vh;
+        }
+        .main-header { margin-bottom: 28px; }
+        .main-header h1 { font-size: 26px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .main-header p { color: var(--text-muted); font-size: 14px; }
+
+        .search-card {
+            background: var(--card-bg); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 24px 28px; margin-bottom: 24px;
+        }
+        .search-form {
+            display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
+        }
+        .search-field { display: flex; flex-direction: column; }
+        .search-field label {
+            font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px;
+        }
+        .search-field input, .search-field select {
+            padding: 11px 14px; border: 1.5px solid var(--border);
+            border-radius: 8px; font-size: 14px; color: var(--text);
+            background: #fafbfc; transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-field input:focus, .search-field select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+            outline: none; background: #fff;
+        }
+        .btn-search {
+            padding: 11px 24px; border: none; border-radius: 8px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: #fff; transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-search:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(102,126,234,0.4);
+        }
+
+        .results-info {
+            font-size: 13px; color: var(--text-muted); margin-bottom: 16px;
+        }
+
+        .table-card {
+            background: var(--card-bg); border-radius: var(--radius);
+            box-shadow: var(--shadow); overflow: hidden;
+        }
+        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td {
+            padding: 12px 16px; text-align: left;
+            border-bottom: 1px solid #f0f0f0; font-size: 13px;
+        }
+        th {
+            background: #fafbfc; color: #5f6368; font-weight: 600;
+            font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        tr:hover { background: #f8f9fc; }
+        td strong { color: var(--text); }
+
+        .grade-badge {
+            display: inline-block; padding: 4px 12px; border-radius: 12px;
+            font-weight: 600; font-size: 13px;
+        }
+        .grade-excellent { background: #e8f5e9; color: #2e7d32; }
+        .grade-good { background: #e3f2fd; color: #1565c0; }
+        .grade-fair { background: #fff8e1; color: #e65100; }
+        .grade-poor { background: #fce4ec; color: #c62828; }
+        .grade-none { background: #f5f5f5; color: #999; font-style: italic; font-weight: 400; }
+
+        .file-link {
+            color: var(--primary); text-decoration: none; font-weight: 500;
+        }
+        .file-link:hover { text-decoration: underline; }
+
+        .empty-state {
+            padding: 60px; text-align: center; color: #999; font-size: 14px;
+        }
+        .empty-state h3 { color: #666; margin-bottom: 8px; font-size: 16px; }
+
+        .flash {
+            padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 20px;
+        }
+        .flash.error { background: #fff5f5; color: #c53030; border: 1px solid #fed7d7; }
+        .flash.warning { background: #fffaf0; color: #c05621; border: 1px solid #feebc8; }
+        .flash.success { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
+        /* --- RESPONSIVE --- */
+        .hamburger {
+            display: none; position: fixed; top: 14px; left: 14px; z-index: 200;
+            background: var(--sidebar-bg); color: #fff; border: none; border-radius: 8px;
+            width: 42px; height: 42px; font-size: 20px; cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2); align-items: center; justify-content: center;
+        }
+        .sidebar-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.45); z-index: 99;
+        }
+        .sidebar-overlay.show { display: block; }
+
+        @media (max-width: 768px) {
+            .hamburger { display: flex; }
+            .sidebar { transform: translateX(-100%); transition: transform 0.25s ease; }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; padding: 60px 20px 24px; }
+            .main-header h1 { font-size: 22px; }
+            .search-card { padding: 20px; }
+            .search-form { flex-direction: column; align-items: stretch; }
+            .search-field input, .search-field select, .btn-search { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <div class="logo">
+            <span class="icon">📂</span> Submissions
+        </div>
+        <div class="tagline">File submission portal</div>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="nav-section">Main</div>
+        <a href="/">
+            <span class="nav-icon">📤</span> Submit Files
+        </a>
+        <a href="/check" class="active">
+            <span class="nav-icon">🔍</span> Check Submission
+        </a>
+        <div class="nav-section">Administration</div>
+        <a href="/admin">
+            <span class="nav-icon">⚙️</span> Admin Panel
+        </a>
+        {% if admin_logged_in %}
+        <a href="/admin/grades">
+            <span class="nav-icon">📊</span> Grades Summary
+        </a>
+        {% endif %}
+    </nav>
+    <div class="sidebar-footer">
+        &copy; 2026 Submission Portal
+    </div>
+</aside>
+
+<!-- ============ MAIN CONTENT ============ -->
+<main class="main">
+    <div class="main-header">
+        <h1>Check Your Submissions</h1>
+        <p>Search by your name to see what you've submitted and your grades</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="search-card">
+        <form class="search-form" method="GET" action="/check">
+            <div class="search-field" style="flex: 2; min-width: 200px;">
+                <label for="name">Your Name</label>
+                <input type="text" id="name" name="name" placeholder="Enter your name..." value="{{ search_name }}" required>
+            </div>
+            <div class="search-field" style="flex: 1; min-width: 180px;">
+                <label for="course">Course (optional)</label>
+                <select id="course" name="course">
+                    <option value="">All Courses</option>
+                    {% for course in courses %}
+                    <option value="{{ course.display }}" {% if course_filter == course.display %}selected{% endif %}>{{ course.display }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn-search">Search</button>
+        </form>
+    </div>
+
+    {% if search_name %}
+    <div class="results-info">
+        {% if submissions %}
+        Found <strong>{{ submissions|length }}</strong> submission(s) for "<strong>{{ search_name }}</strong>"
+        {% else %}
+        No submissions found for "<strong>{{ search_name }}</strong>"
+        {% endif %}
+    </div>
+
+    {% if submissions %}
+    <div class="table-card">
+        <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Course</th>
+                    <th>Activity</th>
+                    <th>File</th>
+                    <th>Size</th>
+                    <th>Date Submitted</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sub in submissions %}
+                <tr>
+                    <td style="color:#999;">{{ loop.index }}</td>
+                    <td>{{ sub.course_name }}</td>
+                    <td>{{ sub.activity_name }}</td>
+                    <td><span class="file-link">{{ sub.original_filename }}</span></td>
+                    <td>{{ (sub.file_size / 1024)|round(2) }} KB</td>
+                    <td>{{ sub.submitted_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="table-card">
+        <div class="empty-state">
+            <h3>No submissions found</h3>
+            <p>Make sure you spelled your name correctly, or try searching without a course filter.</p>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</main>
+
+<script>
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('sidebarOverlay').classList.toggle('show');
+    }
+</script>
+</body>
+</html>

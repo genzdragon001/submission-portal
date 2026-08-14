@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Lists - Submission Folder</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 260px;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #1a1f36 0%, #252b45 100%);
+            color: #e0e4f0;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 100;
+            box-shadow: 2px 0 20px rgba(0,0,0,0.15);
+        }
+        .sidebar-brand {
+            padding: 24px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-brand h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sidebar-brand h2 svg {
+            width: 28px;
+            height: 28px;
+            color: #7c8aff;
+        }
+        .sidebar-brand span {
+            font-size: 11px;
+            color: #8890b5;
+            display: block;
+            margin-top: 3px;
+        }
+        .sidebar-nav {
+            padding: 16px 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            color: #b0b8d0;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+        }
+        .sidebar-nav a.active {
+            background: rgba(124,138,255,0.15);
+            color: #8b9aff;
+        }
+        .sidebar-nav a svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+        .sidebar-nav .nav-spacer { flex: 1; }
+
+        .sidebar-footer {
+            padding: 12px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-footer a {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            color: #b0b8d0;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 13px;
+            transition: all 0.15s;
+        }
+        .sidebar-footer a:hover { background: rgba(220,53,69,0.12); color: #ff6b7a; }
+
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            padding: 24px 28px;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .topbar h1 {
+            font-size: 24px;
+            color: #1a1f36;
+        }
+
+        .filters-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding: 16px 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .filters-bar label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #5f6368;
+        }
+        .filters-bar select, .filters-bar input {
+            padding: 8px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 13px;
+            background: white;
+        }
+        .filters-bar select:focus, .filters-bar input:focus {
+            border-color: #7c8aff;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(124,138,255,0.1);
+        }
+        .filters-bar button {
+            padding: 8px 18px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background 0.15s;
+        }
+        .filters-bar button:hover { background: #5a6fd6; }
+        .filters-bar .btn-clear {
+            background: #e8eaed;
+            color: #333;
+        }
+        .filters-bar .btn-clear:hover { background: #dadce0; }
+        .filters-bar .filter-count {
+            margin-left: auto;
+            font-size: 13px;
+            color: #888;
+        }
+
+        .sections-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+            gap: 20px;
+        }
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            overflow: hidden;
+        }
+        .section-card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fafbfc;
+        }
+        .section-card-header h2 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1a1f36;
+        }
+        .section-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .section-actions button {
+            padding: 5px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            color: #555;
+            transition: all 0.15s;
+        }
+        .section-actions button:hover {
+            background: #f0f0f0;
+            border-color: #bbb;
+        }
+        .section-actions .btn-select-all { background: #e8f0fe; border-color: #c5d9f7; color: #1a73e8; }
+        .section-actions .btn-select-all:hover { background: #d2e3fc; }
+        .section-actions .btn-copy-names { background: #e8f5e9; border-color: #c8e6c9; color: #2e7d32; }
+        .section-actions .btn-copy-names:hover { background: #c8e6c9; }
+        .section-card-body {
+            padding: 12px 20px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .student-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .student-list li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #333;
+            transition: background 0.1s;
+            cursor: pointer;
+        }
+        .student-list li:hover {
+            background: #f5f7fa;
+        }
+        .student-list li.selected {
+            background: #e8f0fe;
+            color: #1a73e8;
+            font-weight: 500;
+        }
+        .student-list li .number {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #eef0f5;
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: 600;
+            color: #888;
+            flex-shrink: 0;
+        }
+        .student-list li .checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .section-card-footer {
+            padding: 10px 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #888;
+        }
+        .section-card-footer .stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .section-card-footer .stat strong {
+            color: #333;
+            font-size: 14px;
+        }
+        .badge-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            height: 22px;
+            padding: 0 6px;
+            background: #667eea;
+            color: white;
+            border-radius: 11px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .badge-graded {
+            background: #43a047;
+        }
+        .summary-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .summary-card h3 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .summary-card p {
+            font-size: 13px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .sum-sections h3 { color: #667eea; }
+        .sum-students h3 { color: #43a047; }
+        .sum-submissions h3 { color: #fb8c00; }
+
+        .empty-state { padding: 60px; text-align: center; color: #999; }
+        .empty-state h3 { color: #666; margin-bottom: 8px; }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #333;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            pointer-events: none;
+            z-index: 999;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* --- RESPONSIVE --- */
+        .hamburger {
+            display: none;
+            position: fixed;
+            top: 14px;
+            left: 14px;
+            z-index: 200;
+            background: #1a1f36;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            width: 42px;
+            height: 42px;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            align-items: center;
+            justify-content: center;
+        }
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 99;
+        }
+        .sidebar-overlay.show { display: block; }
+
+        @media (max-width: 768px) {
+            .hamburger { display: flex; }
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.25s ease;
+            }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 60px 16px 24px; }
+            .topbar { flex-direction: column; align-items: stretch; }
+            .topbar h1 { font-size: 20px; }
+            .sections-grid { grid-template-columns: 1fr; min-width: 0; }
+            .filters-bar { flex-direction: column; align-items: stretch; }
+            .filters-bar select, .filters-bar button { width: 100%; }
+            .filters-bar .filter-count { margin-left: 0; text-align: center; }
+            .summary-bar { grid-template-columns: 1fr 1fr 1fr; }
+            .section-card-body { max-height: 350px; }
+        }
+        @media (max-width: 480px) {
+            .summary-bar { grid-template-columns: 1fr; }
+            .section-card-header { flex-direction: column; gap: 10px; align-items: stretch; }
+            .section-actions { justify-content: flex-end; }
+        }
+    </style>
+</head>
+<body>
+    <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <h2>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                Admin Panel
+            </h2>
+            <span>Submission Portal</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/admin">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Dashboard
+            </a>
+            <a href="/admin/grades">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                Grades Summary
+            </a>
+            <a href="/admin/classlist" class="active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                Class Lists
+            </a>
+            <a href="/admin/class-record">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Class Record
+            </a>
+            <a href="/">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14l-5-5 5-5"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
+                Back to Submission
+            </a>
+            <div class="nav-spacer"></div>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="/admin/logout">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Logout
+            </a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Class Lists</h1>
+        </div>
+
+        {% if sections %}
+        {% set total_students = sections|sum(attribute='student_count') %}
+        {% set total_submissions = sections|sum(attribute='total') %}
+        {% set unique_sections = sections|length %}
+        <div class="summary-bar">
+            <div class="summary-card sum-sections">
+                <h3>{{ unique_sections }}</h3>
+                <p>Sections</p>
+            </div>
+            <div class="summary-card sum-students">
+                <h3>{{ total_students }}</h3>
+                <p>Students</p>
+            </div>
+            <div class="summary-card sum-submissions">
+                <h3>{{ total_submissions }}</h3>
+                <p>Submissions</p>
+            </div>
+        </div>
+
+        <div class="filters-bar">
+            <label for="courseCode">Filter Section:</label>
+            <select id="courseCode" onchange="applyFilter()">
+                <option value="">All Sections</option>
+                {% for code in all_codes %}
+                <option value="{{ code }}" {% if course_filter == code %}selected{% endif %}>{{ code }}</option>
+                {% endfor %}
+            </select>
+            <label for="sortBy">Sort by:</label>
+            <select id="sortBy" onchange="applyFilter()">
+                <option value="name" {% if sort_order == 'name' %}selected{% endif %}>Name (A-Z)</option>
+                <option value="code" {% if sort_order == 'code' %}selected{% endif %}>Course Code</option>
+                <option value="count" {% if sort_order == 'count' %}selected{% endif %}>Student Count</option>
+            </select>
+            <button type="button" class="btn-clear" onclick="clearFilter()">Clear</button>
+            <span class="filter-count">Showing {{ sections|length }} of {{ unique_sections }} sections</span>
+        </div>
+
+        <div class="sections-grid">
+            {% for section in sections %}
+            <div class="section-card" id="section-{{ loop.index }}">
+                <div class="section-card-header">
+                    <h2>{{ section.name }}</h2>
+                    <div class="section-actions">
+                        <button class="btn-select-all" onclick="toggleSelectAll(this, 'list-{{ loop.index }}')" data-all="true">Select All</button>
+                        <button class="btn-copy-names" onclick="copyNames('list-{{ loop.index }}')">Copy Names</button>
+                    </div>
+                </div>
+                <div class="section-card-body">
+                    <ul class="student-list" id="list-{{ loop.index }}">
+                        {% for student in section.students %}
+                        <li onclick="toggleStudent(this)" data-name="{{ student }}">
+                            <input type="checkbox" class="checkbox" onclick="event.stopPropagation(); toggleCheckbox(this)" data-name="{{ student }}">
+                            <span class="number">{{ loop.index }}</span>
+                            {{ student }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="section-card-footer">
+                    <div class="stat">
+                        <span class="badge-count">{{ section.student_count }}</span> students
+                    </div>
+                    <div class="stat">
+                        <span class="badge-count badge-graded">{{ section.graded }}</span> graded
+                    </div>
+                    <div class="stat">
+                        <strong>{{ section.total }}</strong> submissions
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="empty-state">
+            <h3>No class lists available</h3>
+            <p>Students will appear here once they submit their work.</p>
+        </div>
+        {% endif %}
+    </main>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        function applyFilter() {
+            const code = document.getElementById('courseCode').value;
+            const sort = document.getElementById('sortBy').value;
+            let url = '/admin/classlist?';
+            if (code) url += 'course=' + encodeURIComponent(code) + '&';
+            if (sort) url += 'sort=' + encodeURIComponent(sort);
+            window.location.href = url;
+        }
+
+        function clearFilter() {
+            window.location.href = '/admin/classlist';
+        }
+
+        function toggleStudent(li) {
+            const checkbox = li.querySelector('.checkbox');
+            checkbox.checked = !checkbox.checked;
+            li.classList.toggle('selected', checkbox.checked);
+        }
+
+        function toggleCheckbox(cb) {
+            cb.closest('li').classList.toggle('selected', cb.checked);
+        }
+
+        function toggleSelectAll(btn, listId) {
+            const list = document.getElementById(listId);
+            const items = list.querySelectorAll('li');
+            const selectAll = btn.dataset.all === 'true';
+            items.forEach(li => {
+                const cb = li.querySelector('.checkbox');
+                cb.checked = selectAll;
+                li.classList.toggle('selected', selectAll);
+            });
+            btn.dataset.all = selectAll ? 'false' : 'true';
+            btn.textContent = selectAll ? 'Deselect All' : 'Select All';
+        }
+
+        function copyNames(listId) {
+            const list = document.getElementById(listId);
+            const checkboxes = list.querySelectorAll('.checkbox:checked');
+            let names;
+            if (checkboxes.length > 0) {
+                names = Array.from(checkboxes).map(cb => cb.dataset.name);
+            } else {
+                // If nothing selected, copy all
+                names = Array.from(list.querySelectorAll('li')).map(li => li.dataset.name);
+            }
+            const text = names.join('\n');
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied ' + names.length + ' student name(s)');
+            }).catch(() => {
+                showToast('Failed to copy. Try again.');
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('show');
+        }
+    </script>
+</body>
+</html>

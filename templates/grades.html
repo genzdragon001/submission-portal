@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grades Summary - Submission Folder</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 260px;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #1a1f36 0%, #252b45 100%);
+            color: #e0e4f0;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 100;
+            box-shadow: 2px 0 20px rgba(0,0,0,0.15);
+        }
+        .sidebar-brand {
+            padding: 24px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-brand h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sidebar-brand h2 svg {
+            width: 28px;
+            height: 28px;
+            color: #7c8aff;
+        }
+        .sidebar-brand span {
+            font-size: 11px;
+            color: #8890b5;
+            display: block;
+            margin-top: 3px;
+        }
+        .sidebar-nav {
+            padding: 16px 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            color: #b0b8d0;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+        }
+        .sidebar-nav a.active {
+            background: rgba(124,138,255,0.15);
+            color: #8b9aff;
+        }
+        .sidebar-nav a svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+        .sidebar-nav .nav-spacer { flex: 1; }
+
+        .sidebar-footer {
+            padding: 12px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-footer a {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            color: #b0b8d0;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 13px;
+            transition: all 0.15s;
+        }
+        .sidebar-footer a:hover { background: rgba(220,53,69,0.12); color: #ff6b7a; }
+
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            padding: 24px 28px;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .topbar h1 {
+            font-size: 24px;
+            color: #1a1f36;
+        }
+
+        .flash-messages { margin-bottom: 20px; }
+        .flash { padding: 12px 16px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
+        .flash.error { background: #fef0f0; color: #c00; border: 1px solid #fcc; }
+        .flash.success { background: #f0faf0; color: #060; border: 1px solid #cfc; }
+        .flash.warning { background: #fff8e6; color: #856404; border: 1px solid #ffeeba; }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .card-header h2 {
+            color: #1a1f36;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filters select, .filters input {
+            padding: 9px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 13px;
+            background: white;
+        }
+        .filters select:focus, .filters input:focus {
+            border-color: #7c8aff;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(124,138,255,0.1);
+        }
+        .filters button {
+            padding: 9px 18px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background 0.15s;
+        }
+        .filters button:hover { background: #5a6fd6; }
+        .filters .btn-clear {
+            background: #e8eaed;
+            color: #333;
+        }
+        .filters .btn-clear:hover { background: #dadce0; }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            background: #fafbfc;
+        }
+        .summary-stat {
+            text-align: center;
+            padding: 16px 12px;
+            background: white;
+            border-radius: 10px;
+            border: 1px solid #eef0f5;
+        }
+        .summary-stat .stat-icon {
+            font-size: 24px;
+            margin-bottom: 6px;
+        }
+        .summary-stat h3 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .summary-stat p {
+            color: #666;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stat-total h3 { color: #667eea; }
+        .stat-graded h3 { color: #43a047; }
+        .stat-ungraded h3 { color: #ef5350; }
+        .stat-average h3 { color: #fb8c00; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        th {
+            background: #fafbfc;
+            color: #5f6368;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        td {
+            color: #333;
+        }
+        tr:hover { background: #f8f9fc; }
+        td strong { color: #1a1f36; }
+        .grade-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .grade-excellent { background: #e8f5e9; color: #2e7d32; }
+        .grade-good { background: #e3f2fd; color: #1565c0; }
+        .grade-fair { background: #fff8e1; color: #e65100; }
+        .grade-poor { background: #fce4ec; color: #c62828; }
+        .grade-none { background: #f5f5f5; color: #999; font-style: italic; font-weight: 400; }
+        .empty-state { padding: 60px; text-align: center; color: #999; }
+        .empty-state h3 { color: #666; margin-bottom: 8px; }
+
+        .export-buttons { display: flex; gap: 8px; }
+        .btn-csv {
+            padding: 8px 16px;
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background 0.15s;
+        }
+        .btn-csv:hover { background: #c8e6c9; }
+        .btn-print {
+            padding: 8px 16px;
+            background: #eceff1;
+            color: #37474f;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background 0.15s;
+        }
+        .btn-print:hover { background: #cfd8dc; }
+
+        @media print {
+            body { background: white; }
+            .sidebar, .topbar, .filters, .export-buttons, .card-header button { display: none; }
+            .main-content { margin-left: 0; padding: 0; }
+            .card { box-shadow: none; border-radius: 0; }
+            th { background: #eee; }
+        }
+
+        /* --- RESPONSIVE --- */
+        .hamburger {
+            display: none;
+            position: fixed;
+            top: 14px;
+            left: 14px;
+            z-index: 200;
+            background: #1a1f36;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            width: 42px;
+            height: 42px;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            align-items: center;
+            justify-content: center;
+        }
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 99;
+        }
+        .sidebar-overlay.show { display: block; }
+        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+        @media (max-width: 768px) {
+            .hamburger { display: flex; }
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.25s ease;
+            }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 60px 16px 24px; }
+            .topbar { flex-direction: column; align-items: stretch; }
+            .topbar h1 { font-size: 20px; }
+            .export-buttons { justify-content: center; }
+            .card-header { flex-direction: column; align-items: stretch; }
+            .filters { flex-direction: column; }
+            .filters select, .filters input, .filters button { width: 100%; }
+            .summary-stats { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 480px) {
+            .summary-stats { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <h2>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                Admin Panel
+            </h2>
+            <span>Submission Portal</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/admin">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Dashboard
+            </a>
+            <a href="/admin/grades" class="active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                Grades Summary
+            </a>
+            <a href="/admin/classlist">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                Class Lists
+            </a>
+            <a href="/admin/class-record">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Class Record
+            </a>
+            <a href="/">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14l-5-5 5-5"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
+                Back to Submission
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="/admin/logout">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Logout
+            </a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Grades Summary</h1>
+            <div class="export-buttons">
+                <button class="btn-csv" onclick="exportToCSV()">Export CSV</button>
+                <button class="btn-print" onclick="window.print()">Print</button>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Activity Grade Summary</h2>
+                <form class="filters" method="GET">
+                    <select name="course">
+                        <option value="">All Courses</option>
+                        {% for course in courses %}
+                        <option value="{{ course.display }}" {% if course_filter == course.display %}selected{% endif %}>{{ course.display }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="activity">
+                        <option value="">All Activities</option>
+                        {% for activity in activities %}
+                        <option value="{{ activity.name }}" {% if activity_filter == activity.name %}selected{% endif %}>{{ activity.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit">Filter</button>
+                    <a href="/admin/grades"><button type="button" class="btn-clear">Clear</button></a>
+                </form>
+            </div>
+
+            {% if submissions %}
+            {% set graded = submissions|selectattr('grade', 'ne', None)|list %}
+            {% set ungraded = submissions|rejectattr('grade', 'ne', None)|list %}
+            {% set avg = (graded|sum(attribute='grade') / graded|length)|round(1) if graded else 0 %}
+            <div class="summary-stats">
+                <div class="summary-stat stat-total">
+                    <div class="stat-icon">&#128196;</div>
+                    <h3>{{ submissions|length }}</h3>
+                    <p>Total Submissions</p>
+                </div>
+                <div class="summary-stat stat-graded">
+                    <div class="stat-icon">&#10004;</div>
+                    <h3>{{ graded|length }}</h3>
+                    <p>Graded</p>
+                </div>
+                <div class="summary-stat stat-ungraded">
+                    <div class="stat-icon">&#9203;</div>
+                    <h3>{{ ungraded|length }}</h3>
+                    <p>Not Yet Graded</p>
+                </div>
+                <div class="summary-stat stat-average">
+                    <div class="stat-icon">&#9733;</div>
+                    <h3>{{ avg }}</h3>
+                    <p>Average Grade</p>
+                </div>
+            </div>
+
+            <div class="table-scroll">
+            <table id="gradesTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Student Name</th>
+                        <th>Course</th>
+                        <th>Activity</th>
+                        <th>Date Submitted</th>
+                        <th>File</th>
+                        <th>Grade</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sub in submissions %}
+                    <tr>
+                        <td style="color:#999;">{{ loop.index }}</td>
+                        <td><strong>{{ sub.student_name }}</strong></td>
+                        <td>{{ sub.course_name }}</td>
+                        <td>{{ sub.activity_name }}</td>
+                        <td>{{ sub.submitted_at }}</td>
+                        <td style="font-size:12px;color:#555;">{{ sub.original_filename }}</td>
+                        <td>
+                            {% if sub.grade is not none %}
+                                {% if sub.grade >= 90 %}
+                                <span class="grade-badge grade-excellent">{{ sub.grade }}</span>
+                                {% elif sub.grade >= 80 %}
+                                <span class="grade-badge grade-good">{{ sub.grade }}</span>
+                                {% elif sub.grade >= 70 %}
+                                <span class="grade-badge grade-fair">{{ sub.grade }}</span>
+                                {% elif sub.grade >= 60 %}
+                                <span class="grade-badge grade-poor">{{ sub.grade }}</span>
+                                {% else %}
+                                <span class="grade-badge grade-poor">{{ sub.grade }}</span>
+                                {% endif %}
+                            {% else %}
+                            <span class="grade-badge grade-none">Not graded</span>
+                            {% endif %}
+                        </td>
+                        <td>{% if sub.remarks %}{{ sub.remarks }}{% else %}<span style="color:#ccc;">&mdash;</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <h3>No submissions to display</h3>
+                <p>Submissions will appear here once students submit their work.</p>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <script>
+        function exportToCSV() {
+            const table = document.getElementById('gradesTable');
+            const rows = table.querySelectorAll('tr');
+            let csv = [];
+
+            for (let row of rows) {
+                let cols = row.querySelectorAll('th, td');
+                let rowData = [];
+                for (let col of cols) {
+                    let text = col.textContent.trim().replace(/"/g, '""');
+                    rowData.push('"' + text + '"');
+                }
+                csv.push(rowData.join(','));
+            }
+
+            const blob = new Blob([csv.join('\n')], {type: 'text/csv;charset=utf-8;'});
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'grades_summary_' + new Date().toISOString().slice(0, 10) + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('show');
+        }
+    </script>
+</body>
+</html>
