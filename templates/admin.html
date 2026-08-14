@@ -739,7 +739,7 @@
             <div class="card">
                 <div class="card-header"><h3>Activities</h3></div>
                 <div class="form-row">
-                    <form action="/admin/activity/create" method="POST">
+                    <form action="/admin/activity/create" method="POST" id="createActivityForm">
                         <input type="text" name="name" placeholder="Activity name" required style="flex: 2; min-width: 120px;">
                         <select name="course_id" style="flex: 1; min-width: 120px;">
                             <option value="">Select Course</option>
@@ -748,14 +748,19 @@
                             {% endfor %}
                         </select>
                         <input type="datetime-local" name="due_date" style="flex: 1; min-width: 140px;">
+                        <button type="button" class="btn-primary" onclick="openRubricModal('create')" style="background: #6a1b9a;">Criteria</button>
                         <button type="submit" class="btn-primary">Add</button>
+                        <input type="hidden" name="rubric" id="createActivityRubric" value="">
                     </form>
                 </div>
                 <div class="item-list">
                     {% for activity in all_activities %}
                     <div class="item-tag {% if activity.is_past_due %}past-due{% endif %}">
                         <span class="tag-label">{{ activity.name }}{% if activity.due_date %} - {{ activity.due_date }}{% endif %}</span>
-                        <button class="btn-sm btn-edit" onclick="editActivity({{ activity.id }}, '{{ activity.name }}', '{{ activity.due_date or '' }}')">Edit</button>
+                        {% if activity.rubric and activity.rubric != '[]' %}
+                        <span style="font-size:10px;background:#f3e5f5;color:#6a1b9a;padding:2px 6px;border-radius:4px;" title="Has grading criteria">&#128221;</span>
+                        {% endif %}
+                        <button class="btn-sm btn-edit" onclick="editActivity({{ activity.id }}, '{{ activity.name }}', '{{ activity.due_date or '' }}', {{ activity.rubric|default('[]')|safe }})">Edit</button>
                         <button class="delete-btn" onclick="deleteActivity({{ activity.id }})">&times;</button>
                     </div>
                     {% endfor %}
@@ -887,6 +892,10 @@
                     {% endfor %}
                 </select>
                 <input type="datetime-local" name="due_date" id="editActivityDue">
+                <input type="hidden" name="rubric" id="editActivityRubric" value="">
+                <div style="display:flex;gap:8px;margin-bottom:10px;">
+                    <button type="button" class="btn-primary" onclick="openRubricModal('edit')" style="background:#6a1b9a;width:100%;">Edit Criteria</button>
+                </div>
                 <div class="modal-actions">
                     <button type="button" class="modal-cancel" onclick="closeEditActivity()">Cancel</button>
                     <button type="submit" class="modal-save">Save</button>
@@ -901,6 +910,23 @@
             <div id="agModalBody"></div>
             <div class="modal-actions" style="margin-top: 15px;">
                 <button class="modal-save" onclick="closeAutoGradeModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rubric / Criteria Modal -->
+    <div class="modal" id="rubricModal">
+        <div class="modal-content" style="max-width:600px;max-height:85vh;overflow-y:auto;">
+            <h3>&#128221; Grading Criteria</h3>
+            <p style="margin-bottom:16px;">Define how this activity should be rated. The system uses these criteria to auto-grade submissions.</p>
+            <div id="rubricCriteriaList"></div>
+            <button type="button" onclick="addCriterion()" style="width:100%;padding:10px;background:#f3e5f5;color:#6a1b9a;border:1px dashed #6a1b9a;border-radius:8px;cursor:pointer;font-size:13px;margin:10px 0;">+ Add Criterion</button>
+            <div style="margin-top:8px;padding:10px;background:#f8f9fc;border-radius:8px;font-size:12px;color:#666;">
+                <strong>Tip:</strong> Criterion names with keywords like "complete", "code quality", "correct", "documentation", "drawing", "label", "effort" etc. get scored with appropriate heuristics. Others are scored by file size/complexity.
+            </div>
+            <div class="modal-actions" style="margin-top:15px;">
+                <button type="button" class="modal-cancel" onclick="closeRubricModal()">Cancel</button>
+                <button type="button" class="modal-save" onclick="saveRubric()">Save Criteria</button>
             </div>
         </div>
     </div>
@@ -1034,17 +1060,110 @@
             document.getElementById('editCourseModal').classList.remove('show');
         }
 
-        function editActivity(id, name, dueDate) {
+        function editActivity(id, name, dueDate, rubric) {
             document.getElementById('editActivityName').value = name;
             if (dueDate) {
                 document.getElementById('editActivityDue').value = dueDate.replace(' ', 'T');
+            } else {
+                document.getElementById('editActivityDue').value = '';
             }
             document.getElementById('editActivityForm').action = `/admin/activity/${id}/update`;
+            document.getElementById('editActivityRubric').value = rubric ? JSON.stringify(rubric) : '';
             document.getElementById('editActivityModal').classList.add('show');
         }
 
         function closeEditActivity() {
             document.getElementById('editActivityModal').classList.remove('show');
+        }
+
+        // --- Rubric / Criteria management ---
+        let _rubricMode = 'create';  // 'create' or 'edit'
+
+        function openRubricModal(mode) {
+            _rubricMode = mode;
+            const hiddenField = mode === 'edit'
+                ? document.getElementById('editActivityRubric')
+                : document.getElementById('createActivityRubric');
+            let criteria = [];
+            try {
+                criteria = JSON.parse(hiddenField.value || '[]');
+            } catch (e) { criteria = []; }
+            renderCriteriaList(criteria);
+            document.getElementById('rubricModal').classList.add('show');
+        }
+
+        function closeRubricModal() {
+            document.getElementById('rubricModal').classList.remove('show');
+        }
+
+        function renderCriteriaList(criteria) {
+            const container = document.getElementById('rubricCriteriaList');
+            container.innerHTML = '';
+            if (!criteria || criteria.length === 0) {
+                container.innerHTML = '<p style="color:#999;font-size:13px;text-align:center;padding:20px;">No criteria yet. Click "Add Criterion" to start.</p>';
+                return;
+            }
+            criteria.forEach((c, i) => {
+                const div = document.createElement('div');
+                div.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;padding:10px;background:#f8f9fc;border-radius:8px;';
+                div.innerHTML = `
+                    <div style="flex:1;">
+                        <input type="text" placeholder="Criterion name (e.g. Code Quality)" value="${escapeAttr(c.name||'')}" oninput="updateCriterion(${i},'name',this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;margin-bottom:6px;">
+                        <input type="number" placeholder="Max points" value="${c.max_points||10}" oninput="updateCriterion(${i},'max_points',this.value)" style="width:100px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;margin-bottom:6px;">
+                        <input type="text" placeholder="Description (optional)" value="${escapeAttr(c.description||'')}" oninput="updateCriterion(${i},'description',this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                    </div>
+                    <button type="button" class="delete-btn" onclick="removeCriterion(${i})" style="flex-shrink:0;margin-top:4px;">&times;</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function escapeAttr(s) {
+            return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        let _criteriaBuffer = [];
+
+        function addCriterion() {
+            const hiddenField = _rubricMode === 'edit'
+                ? document.getElementById('editActivityRubric')
+                : document.getElementById('createActivityRubric');
+            try { _criteriaBuffer = JSON.parse(hiddenField.value || '[]'); } catch(e) { _criteriaBuffer = []; }
+            _criteriaBuffer.push({name: '', max_points: 10, description: ''});
+            hiddenField.value = JSON.stringify(_criteriaBuffer);
+            renderCriteriaList(_criteriaBuffer);
+        }
+
+        function updateCriterion(index, field, value) {
+            const hiddenField = _rubricMode === 'edit'
+                ? document.getElementById('editActivityRubric')
+                : document.getElementById('createActivityRubric');
+            try { _criteriaBuffer = JSON.parse(hiddenField.value || '[]'); } catch(e) { _criteriaBuffer = []; }
+            if (_criteriaBuffer[index]) {
+                _criteriaBuffer[index][field] = field === 'max_points' ? parseFloat(value) : value;
+                hiddenField.value = JSON.stringify(_criteriaBuffer);
+            }
+        }
+
+        function removeCriterion(index) {
+            const hiddenField = _rubricMode === 'edit'
+                ? document.getElementById('editActivityRubric')
+                : document.getElementById('createActivityRubric');
+            try { _criteriaBuffer = JSON.parse(hiddenField.value || '[]'); } catch(e) { _criteriaBuffer = []; }
+            _criteriaBuffer.splice(index, 1);
+            hiddenField.value = JSON.stringify(_criteriaBuffer);
+            renderCriteriaList(_criteriaBuffer);
+        }
+
+        function saveRubric() {
+            const hiddenField = _rubricMode === 'edit'
+                ? document.getElementById('editActivityRubric')
+                : document.getElementById('createActivityRubric');
+            try { _criteriaBuffer = JSON.parse(hiddenField.value || '[]'); } catch(e) { _criteriaBuffer = []; }
+            // Filter out empty criteria
+            _criteriaBuffer = _criteriaBuffer.filter(c => c.name && c.name.trim());
+            hiddenField.value = _criteriaBuffer.length > 0 ? JSON.stringify(_criteriaBuffer) : '';
+            closeRubricModal();
         }
 
         function saveGrade(id) {

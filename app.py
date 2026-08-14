@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 import os
 import zipfile
 import io
+import json
 from dotenv import load_dotenv
 
 # Import for C++ auto-grading
@@ -111,7 +112,8 @@ class Activity(db.Model):
     due_date = db.Column(db.DateTime)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+    rubric = db.Column(db.Text, nullable=True)  # JSON array of {name, max_points, description}
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -119,7 +121,8 @@ class Activity(db.Model):
             'name': self.name,
             'due_date': self.due_date.strftime('%Y-%m-%d %H:%M') if self.due_date else None,
             'is_active': self.is_active,
-            'is_past_due': self.due_date < datetime.utcnow() if self.due_date else False
+            'is_past_due': self.due_date < datetime.utcnow() if self.due_date else False,
+            'rubric': self.rubric or '[]'
         }
 
 class Setting(db.Model):
@@ -558,11 +561,12 @@ def create_activity():
     name = request.form.get('name', '').strip()
     course_id = request.form.get('course_id', '').strip()
     due_date = request.form.get('due_date', '').strip()
-    
+    rubric_json = request.form.get('rubric', '').strip()
+
     if not name:
         flash('Activity name is required', 'error')
         return redirect(url_for('admin'))
-    
+
     due_date_obj = None
     if due_date:
         try:
@@ -570,16 +574,29 @@ def create_activity():
         except ValueError:
             flash('Invalid date format', 'error')
             return redirect(url_for('admin'))
-    
+
     course_id_int = int(course_id) if course_id and course_id.isdigit() else None
-    
+
+    # Parse rubric criteria
+    rubric = None
+    if rubric_json:
+        try:
+            criteria = json.loads(rubric_json)
+            if criteria:
+                rubric = json.dumps(criteria)
+        except (json.JSONDecodeError, TypeError):
+            flash('Invalid rubric format', 'error')
+            return redirect(url_for('admin'))
+
     existing = Activity.query.filter_by(name=name).first()
     if existing:
         existing.due_date = due_date_obj
         existing.course_id = course_id_int
+        if rubric is not None:
+            existing.rubric = rubric
         flash(f'Activity "{name}" updated', 'success')
     else:
-        activity = Activity(course_id=course_id_int, name=name, due_date=due_date_obj)
+        activity = Activity(course_id=course_id_int, name=name, due_date=due_date_obj, rubric=rubric)
         db.session.add(activity)
         flash(f'Activity "{name}" created', 'success')
     
@@ -593,19 +610,31 @@ def update_activity(id):
     name = request.form.get('name', '').strip()
     course_id = request.form.get('course_id', '').strip()
     due_date = request.form.get('due_date', '').strip()
-    
+    rubric_json = request.form.get('rubric', '').strip()
+
     if name:
         activity.name = name
-    
+
     if course_id:
         activity.course_id = int(course_id)
-    
+
     if due_date:
         try:
             activity.due_date = datetime.strptime(due_date, '%Y-%m-%dT%H:%M')
         except ValueError:
             flash('Invalid date format', 'error')
             return redirect(url_for('admin'))
+
+    # Update rubric
+    if rubric_json:
+        try:
+            criteria = json.loads(rubric_json)
+            activity.rubric = json.dumps(criteria) if criteria else None
+        except (json.JSONDecodeError, TypeError):
+            flash('Invalid rubric format', 'error')
+            return redirect(url_for('admin'))
+    else:
+        activity.rubric = None
     
     db.session.commit()
     flash(f'Activity "{activity.name}" updated', 'success')
@@ -909,6 +938,289 @@ def class_record():
                           all_codes=sorted(set(all_codes)))
 
 
+def grade_with_rubric(filepath, ext, criteria):
+    """
+    Grade a submission using instructor-defined rubric criteria.
+    Each criterion: {name, max_points, description}
+    Uses file-type-specific heuristics to evaluate each criterion.
+    """
+    breakdown = []
+    details = {}
+    total_score = 0
+    total_max = 0
+
+    # Gather file info for heuristic evaluation
+    file_size = os.path.getsize(filepath)
+    file_info = _gather_file_info(filepath, ext)
+
+    for criterion in criteria:
+        name = criterion.get('name', 'Unnamed')
+        max_pts = float(criterion.get('max_points', 10))
+        desc = criterion.get('description', '')
+        total_max += max_pts
+
+        # Score this criterion based on file heuristics
+        earned, comment = _score_criterion(name, max_pts, file_info, ext)
+        total_score += earned
+        pct = (earned / max_pts * 100) if max_pts > 0 else 0
+
+        if pct >= 90:
+            icon = '\u2B50'
+        elif pct >= 75:
+            icon = '\u2705'
+        elif pct >= 50:
+            icon = '\u26A0\uFE0F'
+        else:
+            icon = '\u274C'
+
+        breakdown.append(f'[{name}] {earned:.1f}/{max_pts:.0f} {icon}')
+        if desc:
+            breakdown.append(f'  {desc}')
+        breakdown.append(f'  {comment}')
+        details[name] = {'earned': earned, 'max': max_pts, 'comment': comment}
+
+    breakdown.append(f'')
+    breakdown.append(f'SCORE: {total_score:.1f}/{total_max:.0f}')
+
+    return {
+        'score': round(total_score, 1),
+        'raw_score': round(total_score, 1),
+        'bonus': 0,
+        'max_score': total_max,
+        'breakdown': breakdown,
+        'details': details
+    }
+
+
+def _gather_file_info(filepath, ext):
+    """Collect heuristic info about the file for rubric scoring."""
+    info = {
+        'size': os.path.getsize(filepath),
+        'ext': ext,
+        'content': None,
+        'line_count': 0,
+        'has_content': False,
+    }
+
+    # Read text-based files
+    if ext in ('.cpp', '.c', '.h', '.hpp', '.cxx', '.txt'):
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                info['content'] = f.read()
+            info['line_count'] = len([l for l in info['content'].split('\n') if l.strip()])
+            info['has_content'] = info['line_count'] > 0
+        except Exception:
+            pass
+    elif ext == '.pdf':
+        try:
+            import fitz
+            doc = fitz.open(filepath)
+            info['page_count'] = doc.page_count
+            info['has_content'] = doc.page_count > 0
+            text = ''
+            for page in doc:
+                text += page.get_text()
+            info['text_length'] = len(text.strip())
+            info['vector_count'] = sum(len(page.get_drawings()) for page in doc)
+            doc.close()
+        except Exception:
+            info['page_count'] = 0
+    elif ext in ('.dwg', '.dxf'):
+        info['has_content'] = info['size'] > 1000
+
+    return info
+
+
+def _score_criterion(name, max_pts, file_info, ext):
+    """
+    Score a single rubric criterion using file heuristics.
+    Returns (earned_points, comment_string).
+    """
+    name_lower = name.lower()
+
+    # Completeness / submission present
+    if any(k in name_lower for k in ('complete', 'submission', 'present', 'file', 'submitted')):
+        if file_info['has_content']:
+            earned = max_pts
+            comment = 'File submitted with content.'
+        else:
+            earned = max_pts * 0.3
+            comment = 'File appears empty or minimal.'
+        return earned, comment
+
+    # Code quality / structure (for code files)
+    if any(k in name_lower for k in ('code quality', 'structure', 'organization', 'readability')):
+        if file_info.get('content'):
+            content = file_info['content']
+            has_comments = '//' in content or '/*' in content or '#' in content
+            has_functions = 'def ' in content or 'void ' in content or 'int ' in content or 'class ' in content
+            has_indent = any(line.startswith('    ') or line.startswith('\t') for line in content.split('\n'))
+            score = 0
+            if has_comments: score += 1
+            if has_functions: score += 1
+            if has_indent: score += 1
+            earned = max_pts * (0.5 + 0.17 * score)
+            earned = min(earned, max_pts)
+            parts = []
+            if has_comments: parts.append('comments')
+            if has_functions: parts.append('functions/classes')
+            if has_indent: parts.append('indentation')
+            comment = f'Found: {", ".join(parts) if parts else "no quality markers"}.'
+            return earned, comment
+        else:
+            return max_pts * 0.3, 'Not a code file or no content.'
+
+    # Correctness / logic
+    if any(k in name_lower for k in ('correct', 'logic', 'functionality', 'output', 'works')):
+        if file_info.get('content'):
+            line_count = file_info.get('line_count', 0)
+            if line_count > 20:
+                earned = max_pts * 0.85
+                comment = f'Substantial code ({line_count} lines) - likely functional.'
+            elif line_count > 5:
+                earned = max_pts * 0.6
+                comment = f'Minimal code ({line_count} lines) - may be incomplete.'
+            else:
+                earned = max_pts * 0.3
+                comment = 'Very little code - likely incomplete.'
+            return earned, comment
+        else:
+            return max_pts * 0.3, 'Cannot evaluate - no readable content.'
+
+    # Documentation / comments
+    if any(k in name_lower for k in ('document', 'comment', 'explain', 'description')):
+        if file_info.get('content'):
+            content = file_info['content']
+            comment_lines = content.count('//') + content.count('/*') + content.count('#')
+            if comment_lines >= 5:
+                earned = max_pts
+                comment = f'Good documentation ({comment_lines} comment markers).'
+            elif comment_lines >= 1:
+                earned = max_pts * 0.6
+                comment = f'Minimal documentation ({comment_lines} comments).'
+            else:
+                earned = max_pts * 0.2
+                comment = 'No documentation found.'
+            return earned, comment
+        else:
+            return max_pts * 0.3, 'Cannot evaluate - no readable content.'
+
+    # Drawing quality / complexity (for DWG/PDF)
+    if any(k in name_lower for k in ('drawing', 'complexity', 'detail', 'accuracy', 'precision', 'cad')):
+        if ext == '.pdf' and 'vector_count' in file_info:
+            vc = file_info['vector_count']
+            if vc > 100:
+                earned = max_pts
+                comment = f'Rich drawing ({vc} vector elements).'
+            elif vc > 30:
+                earned = max_pts * 0.7
+                comment = f'Moderate drawing ({vc} vector elements).'
+            elif vc > 0:
+                earned = max_pts * 0.4
+                comment = f'Simple drawing ({vc} vector elements).'
+            else:
+                earned = max_pts * 0.1
+                comment = 'No vector content detected.'
+            return earned, comment
+        elif ext in ('.dwg', '.dxf'):
+            size = file_info['size']
+            if size > 50000:
+                earned = max_pts * 0.9
+                comment = f'Substantial drawing ({size//1024}KB).'
+            elif size > 10000:
+                earned = max_pts * 0.6
+                comment = f'Moderate drawing ({size//1024}KB).'
+            else:
+                earned = max_pts * 0.3
+                comment = f'Small drawing ({size//1024}KB).'
+            return earned, comment
+        else:
+            return max_pts * 0.5, 'Cannot evaluate drawing quality for this file type.'
+
+    # Labeling / annotation
+    if any(k in name_lower for k in ('label', 'annotation', 'text', 'naming')):
+        if ext == '.pdf' and 'text_length' in file_info:
+            tl = file_info['text_length']
+            if tl > 100:
+                earned = max_pts
+                comment = f'Good labeling ({tl} text characters).'
+            elif tl > 10:
+                earned = max_pts * 0.6
+                comment = f'Minimal labeling ({tl} characters).'
+            else:
+                earned = max_pts * 0.2
+                comment = 'Little to no text/labels.'
+            return earned, comment
+        elif file_info.get('content'):
+            content = file_info['content']
+            # Check for meaningful identifiers
+            identifiers = sum(1 for w in content.split() if len(w) > 3 and w.isidentifier() if w.replace('_','').isalnum())
+            if identifiers > 10:
+                earned = max_pts * 0.9
+                comment = f'Good naming ({identifiers} identifiers).'
+            elif identifiers > 3:
+                earned = max_pts * 0.6
+                comment = f'Moderate naming ({identifiers} identifiers).'
+            else:
+                earned = max_pts * 0.3
+                comment = 'Few meaningful identifiers.'
+            return earned, comment
+        else:
+            return max_pts * 0.5, 'Cannot evaluate labeling for this file type.'
+
+    # Timeliness / on-time
+    if any(k in name_lower for k in ('time', 'deadline', 'late', 'punctual')):
+        earned = max_pts
+        comment = 'Submitted.'
+        return earned, comment
+
+    # Effort / creativity / bonus
+    if any(k in name_lower for k in ('effort', 'creativity', 'bonus', 'extra', 'innovation')):
+        size = file_info['size']
+        if size > 100000:
+            earned = max_pts
+            comment = f'Substantial work ({size//1024}KB).'
+        elif size > 20000:
+            earned = max_pts * 0.7
+            comment = f'Moderate effort ({size//1024}KB).'
+        else:
+            earned = max_pts * 0.4
+            comment = f'Minimal effort ({size//1024}KB).'
+        return earned, comment
+
+    # Default: award proportional to file size as a generic heuristic
+    size = file_info['size']
+    if size > 50000:
+        earned = max_pts * 0.85
+        comment = 'Substantial submission.'
+    elif size > 10000:
+        earned = max_pts * 0.65
+        comment = 'Moderate submission.'
+    elif size > 1000:
+        earned = max_pts * 0.45
+        comment = 'Minimal submission.'
+    else:
+        earned = max_pts * 0.2
+        comment = 'Very small submission.'
+    return earned, comment
+
+
+def format_rubric_report(result, criteria):
+    """Format rubric grading results into a readable report string."""
+    lines = []
+    lines.append('=' * 50)
+    lines.append('RUBRIC-BASED GRADING REPORT')
+    lines.append('=' * 50)
+    lines.append('')
+    for line in result['breakdown']:
+        lines.append(line)
+    lines.append('')
+    lines.append('=' * 50)
+    lines.append(f"FINAL GRADE: {result['score']}/{result['max_score']}")
+    lines.append('=' * 50)
+    return '\n'.join(lines)
+
+
 @app.route('/admin/auto-grade/<int:id>', methods=['POST'])
 @login_required
 def auto_grade(id):
@@ -920,8 +1232,22 @@ def auto_grade(id):
 
     ext = os.path.splitext(submission.original_filename.lower())[1]
 
-    # --- C/C++ files ---
-    if ext in ('.cpp', '.c', '.h', '.hpp', '.cxx'):
+    # Check if the activity has a rubric defined
+    activity = Activity.query.filter_by(name=submission.activity_name).first()
+    rubric_criteria = None
+    if activity and activity.rubric:
+        try:
+            rubric_criteria = json.loads(activity.rubric)
+        except (json.JSONDecodeError, TypeError):
+            rubric_criteria = None
+
+    # If rubric criteria exist, use rubric-based grading
+    if rubric_criteria:
+        result = grade_with_rubric(filepath, ext, rubric_criteria)
+        report = format_rubric_report(result, rubric_criteria)
+
+    # --- C/C++ files --- (fallback to existing graders)
+    elif ext in ('.cpp', '.c', '.h', '.hpp', '.cxx'):
         if not HAS_CODE_GRADER:
             return jsonify({'success': False, 'error': 'Code grader module not available'}), 500
         try:
@@ -961,10 +1287,10 @@ def auto_grade(id):
     return jsonify({
         'success': True,
         'grade': result['score'],
-        'raw_score': result['raw_score'],
-        'bonus': result['bonus'],
-        'breakdown': result['breakdown'],
-        'details': result['details'],
+        'raw_score': result.get('raw_score', result['score']),
+        'bonus': result.get('bonus', 0),
+        'breakdown': result.get('breakdown', []),
+        'details': result.get('details', {}),
         'remarks': report
     })
 
