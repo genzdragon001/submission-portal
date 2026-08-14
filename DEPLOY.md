@@ -71,7 +71,32 @@ mkdir -p instance submissions
 - 1 web app
 - Your site sleeps after ~3 months of inactivity (just log in to wake it)
 
+## Redeploying after updates
+
+### On your local machine (push changes):
+```
+cd C:\python_script\submission
+git add -A
+git commit -m "describe your change"
+git push
+```
+
+### On PythonAnywhere (pull + reload):
+1. Open a **Bash console** on PythonAnywhere
+2. Run:
+```
+cd ~/submission-portal
+git pull
+source venv/bin/activate
+pip install -r requirements.txt   # only if deps changed
+```
+3. Go to the **Web** tab and click **Reload**
+
+That's it. Your SQLite DB and uploaded files are NOT affected by git pull --
+they live in instance/ and submissions/ which are in .gitignore.
+
 ## Notes
 - The SQLite database auto-creates on first run (instance/submissions.db)
 - Uploaded files go to submissions/ and persist across restarts
 - The database and uploads survive restarts and reloads (persistent filesystem)
+- GitHub repo: https://github.com/genzdragon001/submission-portal
